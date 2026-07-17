@@ -1,0 +1,15 @@
+# Reference Python dependencies for the Q-Smart FastAPI target backend.
+#
+# The runnable MVP backend in this sandbox is the Node/TS service at
+# mini-services/q-smart-queue (it mirrors this stack 1:1 — see root README).
+# These pins are for deploying the exact requested Python stack against the
+# docker-compose Postgres + Redis services.
+
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-socketio==5.12.1
+asyncpg==0.30.0
+redis==5.2.1
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
