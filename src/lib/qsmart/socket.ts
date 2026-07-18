@@ -17,6 +17,7 @@ let socket: Socket | null = null;
 export function getSocket(): Socket {
   if (socket) return socket;
   socket = io(SOCKET_URL, {
+    path: "/",
     transports: ["websocket", "polling"],
     forceNew: true,
     reconnection: true,
@@ -27,6 +28,7 @@ export function getSocket(): Socket {
   });
   return socket;
 }
+
 
 interface QueueSubscription {
   state: QueueState | null;

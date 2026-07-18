@@ -1,23 +1,20 @@
 // Central configuration for the Q-Smart frontend.
 //
-// The Q-Smart backend is a separate mini-service. The gateway (Caddy) routes
-// browser requests to it when the URL carries ?XTransformPort=<port>.
-//   * REST API  -> port 3004
-//   * WebSocket -> port 3003 (Socket.IO path MUST be "/")
-//
-// All requests use relative paths only (never absolute URLs / localhost).
+// Local development: the backend mini-service runs on localhost:3004 (REST)
+// and localhost:3003 (WebSocket / Socket.IO path "/").
 
 export const WS_PORT = 3003;
 export const REST_PORT = 3004;
 
-/** Query-string fragment to route a REST call to the backend. */
-export const REST_TRANSFORM = `XTransformPort=${REST_PORT}`;
+const BACKEND_HOST =
+  typeof window !== "undefined"
+    ? window.location.hostname  // use same host in browser
+    : "localhost";
 
-/** Build a relative REST URL with the gateway transform query appended. */
+/** Build a full REST URL pointing directly at the backend on port 3004. */
 export function restUrl(path: string): string {
-  const sep = path.includes("?") ? "&" : "?";
-  return `${path}${sep}${REST_TRANSFORM}`;
+  return `http://${BACKEND_HOST}:${REST_PORT}${path}`;
 }
 
-/** Relative URL + query the socket.io client must connect to. */
-export const SOCKET_URL = `/?XTransformPort=${WS_PORT}`;
+/** Socket.IO connection URL (direct to backend WS port). */
+export const SOCKET_URL = `http://${BACKEND_HOST}:${WS_PORT}`;

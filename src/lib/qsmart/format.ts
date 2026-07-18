@@ -1,6 +1,6 @@
 // Small formatting + display helpers for the Q-Smart UI.
 
-import type { ServiceType, TokenStatus } from "./types";
+import type { ServiceType, TokenPriority, TokenStatus } from "./types";
 
 /** Format a duration in seconds as a human-friendly ETA string. */
 export function formatEta(sec: number): string {
@@ -67,5 +67,37 @@ export function statusBadgeClass(status: TokenStatus): string {
       return "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30";
     case "cancelled":
       return "bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-zinc-500/15 dark:text-zinc-400 dark:border-zinc-500/30";
+  }
+}
+
+/** Human-readable label for priority levels. */
+export function priorityLabel(priority: TokenPriority | undefined): string {
+  switch (priority) {
+    case "vip": return "VIP";
+    case "express": return "Express";
+    case "regular": return "Regular";
+    default: return "Regular";
+  }
+}
+
+/** Tailwind badge classes for priority levels. */
+export function priorityBadgeClass(priority: TokenPriority | undefined): string {
+  switch (priority) {
+    case "vip":
+      return "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40";
+    case "express":
+      return "bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-500/20 dark:text-slate-300 dark:border-slate-500/40";
+    case "regular":
+    default:
+      return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30";
+  }
+}
+
+/** Short emoji indicator for priority. */
+export function priorityEmoji(priority: TokenPriority | undefined): string {
+  switch (priority) {
+    case "vip": return "⭐";
+    case "express": return "⚡";
+    default: return "";
   }
 }

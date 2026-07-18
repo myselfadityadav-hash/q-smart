@@ -31,17 +31,17 @@ function useAsync<T>(loader: () => Promise<T>, deps: unknown[]) {
   return { data, error, loading };
 }
 
-export function useBranches() {
-  return useAsync<Branch[]>(() => api.listBranches(), []);
+export function useBranches(refreshKey?: number) {
+  return useAsync<Branch[]>(() => api.listBranches(), [refreshKey]);
 }
 
-export function useServiceTypes() {
-  return useAsync<ServiceType[]>(() => api.listServiceTypes(), []);
+export function useServiceTypes(refreshKey?: number) {
+  return useAsync<ServiceType[]>(() => api.listServiceTypes(), [refreshKey]);
 }
 
-export function useTellers(branchId?: string) {
+export function useTellers(branchId?: string, refreshKey?: number) {
   return useAsync<Teller[]>(
     () => (branchId ? api.listTellersByBranch(branchId) : api.listTellers()),
-    [branchId]
+    [branchId, refreshKey]
   );
 }

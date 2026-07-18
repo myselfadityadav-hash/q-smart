@@ -5,11 +5,14 @@ import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { ServiceType, Token } from "@/lib/qsmart/types";
+import type { ServiceType, Token, TokenPriority } from "@/lib/qsmart/types";
 import {
   STATUS_LABEL,
   formatClock,
   formatEta,
+  priorityBadgeClass,
+  priorityEmoji,
+  priorityLabel,
   serviceTypeLabel,
   statusBadgeClass,
 } from "@/lib/qsmart/format";
@@ -57,15 +60,26 @@ export function QueueCard({
             "flex size-10 shrink-0 items-center justify-center rounded-md font-bold tabular-nums",
             isCalled
               ? "bg-emerald-500 text-white"
+              : token.priority === "vip"
+              ? "bg-amber-500 text-white"
+              : token.priority === "express"
+              ? "bg-slate-400 text-white"
               : "bg-muted text-foreground"
           )}
         >
-          {token.number}
+          {priorityEmoji(token.priority) || token.number}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">
-            {serviceTypeLabel(token.serviceType, serviceTypes)}
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className="truncate text-sm font-medium">
+              {serviceTypeLabel(token.serviceType, serviceTypes)}
+            </p>
+            {token.priority !== "regular" && (
+              <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", priorityBadgeClass(token.priority))}>
+                {priorityLabel(token.priority)}
+              </Badge>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
             Joined {formatClock(token.joinedAt)}
           </p>
@@ -99,7 +113,9 @@ export function QueueCard({
     <Card
       className={cn(
         "overflow-hidden border-0 shadow-lg",
-        isCalled && "ring-2 ring-emerald-400"
+        isCalled && "ring-2 ring-emerald-400",
+        token.priority === "vip" && !isCalled && "ring-2 ring-amber-400/50",
+        token.priority === "express" && !isCalled && "ring-1 ring-slate-400/30"
       )}
     >
       <div
@@ -107,6 +123,10 @@ export function QueueCard({
           "px-6 py-5 text-white",
           isCalled
             ? "bg-gradient-to-br from-emerald-500 to-teal-600"
+            : token.priority === "vip"
+            ? "bg-gradient-to-br from-amber-500 to-amber-700"
+            : token.priority === "express"
+            ? "bg-gradient-to-br from-slate-500 to-slate-700"
             : "bg-gradient-to-br from-slate-700 to-slate-900"
         )}
       >
@@ -120,9 +140,16 @@ export function QueueCard({
           >
             {STATUS_LABEL[token.status]}
           </Badge>
-          <span className="text-xs text-white/80">
-            {serviceTypeLabel(token.serviceType, serviceTypes)}
-          </span>
+          <div className="flex items-center gap-1.5">
+            {token.priority !== "regular" && (
+              <Badge variant="outline" className="border-white/40 bg-white/20 text-white text-xs">
+                {priorityEmoji(token.priority)} {priorityLabel(token.priority)}
+              </Badge>
+            )}
+            <span className="text-xs text-white/80">
+              {serviceTypeLabel(token.serviceType, serviceTypes)}
+            </span>
+          </div>
         </div>
         <p className="mt-4 text-sm uppercase tracking-widest text-white/70">
           Your Token
@@ -132,7 +159,10 @@ export function QueueCard({
           initial={{ scale: 1.2, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.3, type: "spring", stiffness: 200 }}
-          className="font-mono text-7xl font-black leading-none tabular-nums"
+          className={cn(
+            "font-mono text-7xl font-black leading-none tabular-nums",
+            isCalled && "animate-glow-pulse"
+          )}
         >
           {String(token.number).padStart(2, "0")}
         </motion.p>
@@ -142,6 +172,7 @@ export function QueueCard({
           icon={<Hash className="size-4" />}
           label="Position"
           value={isWaiting ? `#${token.position}` : "—"}
+          highlight={isWaiting}
         />
         <Stat
           icon={<Timer className="size-4" />}
@@ -166,13 +197,15 @@ function Stat({
   icon,
   label,
   value,
+  highlight,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
+  highlight?: boolean;
 }) {
   return (
-    <div className="rounded-lg bg-muted/60 px-3 py-2">
+    <div className={cn("rounded-lg bg-muted/60 px-3 py-2", highlight && "animate-count-up")}>
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         {icon}
         {label}

@@ -1,0 +1,73 @@
+{
+  "name": "Q-Smart — Virtual Queuing",
+  "short_name": "Q-Smart",
+  "description": "Skip the physical line. Real-time virtual queuing for banks, clinics, and government offices.",
+  "start_url": "/?view=customer",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "theme_color": "#10b981",
+  "background_color": "#ffffff",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Join a queue",
+      "short_name": "Customer",
+      "description": "Open the customer view and grab a virtual token.",
+      "url": "/?view=customer",
+      "icons": [
+        { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }
+      ]
+    },
+    {
+      "name": "Teller dashboard",
+      "short_name": "Teller",
+      "description": "Manage the live queue from the teller dashboard.",
+      "url": "/?view=teller",
+      "icons": [
+        { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }
+      ]
+    },
+    {
+      "name": "Lobby display",
+      "short_name": "Lobby",
+      "description": "Launch the full-screen Now Serving board for the waiting area.",
+      "url": "/?view=lobby",
+      "icons": [
+        { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }
+      ]
+    },
+    {
+      "name": "Admin console",
+      "short_name": "Admin",
+      "description": "Manage branches, service types, and tellers.",
+      "url": "/?view=admin",
+      "icons": [
+        { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }
+      ]
+    }
+  ]
+}

@@ -3,23 +3,39 @@
 
 export type TokenStatus = "waiting" | "called" | "completed" | "no_show" | "cancelled";
 
+export type TokenPriority = "regular" | "express" | "vip";
+
 export interface ServiceType {
   id: string;
   name: string;
   /** Estimated service duration in seconds (used as ETA fallback). */
   estimatedSec: number;
+  active: boolean;
 }
 
 export interface Branch {
   id: string;
   name: string;
   location: string;
+  active: boolean;
+  /** Whether token numbers reset to 1 at the start of each new day. */
+  dailyResetEnabled: boolean;
 }
 
 export interface Teller {
   id: string;
   name: string;
   branchId: string;
+  pin: string;
+  active: boolean;
+}
+
+export interface Admin {
+  id: string;
+  username: string;
+  pin: string;
+  active: boolean;
+  createdAt: number;
 }
 
 export interface Token {
@@ -28,10 +44,14 @@ export interface Token {
   branchId: string;
   serviceType: string;
   status: TokenStatus;
+  /** Priority level: vip > express > regular. */
+  priority: TokenPriority;
   /** 1-based position while waiting; 0 once called/completed. */
   position: number;
   /** Estimated wait time in seconds (position-based). */
   etaSec: number;
+  /** Predicted ETA recorded at join time, used for accuracy tracking. */
+  predictedEtaSec: number | null;
   joinedAt: number; // epoch ms
   calledAt: number | null;
   completedAt: number | null;
@@ -50,6 +70,8 @@ export interface QueueState {
   servedToday: number;
   noShowToday: number;
   lastServiceTimeSec: number | null;
+  /** IDs of tellers who have paused their counter. */
+  pausedTellers: string[];
 }
 
 export interface ActivityEntry {

@@ -9,14 +9,18 @@
 
 import {
   countByStatusToday,
+  getBranchById,
   getCalledTokens,
   getCompletedDurations,
   getMaxTokenNumber,
+  getMaxTokenNumberToday,
   getWaitingTokens,
   insertToken,
+  setBranchLastResetDay,
+  updateTokenServiceType,
   updateTokenStatus,
 } from "./db.js";
-import type { ActivityEntry, QueueState, Token, TokenStatus } from "./types.js";
+import type { QueueState, Token, TokenPriority, TokenStatus } from "./types.js";
 
 const ROLLING_WINDOW = 20; // last N completed services used for the rolling average
 const DEFAULT_AVG_SEC = 180; // fallback ETA per-position when no history exists
@@ -30,6 +34,9 @@ interface BranchLiveState {
 }
 
 const live = new Map<string, BranchLiveState>();
+
+/** Paused tellers set — tracks which tellers are paused (across all branches). */
+const pausedTellers = new Set<string>();
 
 function ensure(branchId: string): BranchLiveState {
   let s = live.get(branchId);
@@ -79,6 +86,7 @@ export function buildQueueState(branchId: string): QueueState {
     servedToday: countByStatusToday(branchId, "completed"),
     noShowToday: countByStatusToday(branchId, "no_show"),
     lastServiceTimeSec: s.recentDurations[0] ?? null,
+    pausedTellers: Array.from(pausedTellers),
   };
 }
 
@@ -87,6 +95,7 @@ export function hydrateFromDb(branchIds: string[]): void {
   for (const branchId of branchIds) {
     const s = ensure(branchId);
     s.queue = getWaitingTokens(branchId);
+    sortQueue(s.queue); // sort by priority after loading from DB
     // Load all called tokens (one per teller).
     const calledTokens = getCalledTokens(branchId);
     for (const t of calledTokens) {
@@ -111,19 +120,47 @@ export class QueueError extends Error {
   }
 }
 
+/** Priority weight: higher = served first. */
+const PRIORITY_WEIGHT: Record<TokenPriority, number> = {
+  vip: 3,
+  express: 2,
+  regular: 1,
+};
+
+/** Sort queue by priority (desc) then by joinedAt (asc). */
+function sortQueue(queue: Token[]): void {
+  queue.sort((a, b) => {
+    const wa = PRIORITY_WEIGHT[a.priority] ?? 1;
+    const wb = PRIORITY_WEIGHT[b.priority] ?? 1;
+    if (wb !== wa) return wb - wa; // higher priority first
+    return a.joinedAt - b.joinedAt; // FIFO within same priority
+  });
+}
+
 /** Customer joins the queue. Persists + pushes to live state. */
-export function joinQueue(branchId: string, serviceType: string): Token {
+export function joinQueue(branchId: string, serviceType: string, priority: TokenPriority = "regular"): Token {
   const s = ensure(branchId);
+
+  // Daily reset: if the branch has daily-reset enabled and the day has changed,
+  // reset the in-memory counter so token numbers start from 1 again.
+  maybeDailyReset(branchId, s);
+
   s.counter += 1;
   const now = Date.now();
+  // Predicted ETA = current position * avg service time (computed before push).
+  const avg = computeAvg(s);
+  const predictedPosition = s.queue.length + 1;
+  const predictedEta = predictedPosition * avg;
   const token: Token = {
     id: genId(),
     number: s.counter,
     branchId,
     serviceType,
     status: "waiting",
+    priority,
     position: 0,
     etaSec: 0,
+    predictedEtaSec: predictedEta,
     joinedAt: now,
     calledAt: null,
     completedAt: null,
@@ -131,14 +168,41 @@ export function joinQueue(branchId: string, serviceType: string): Token {
     serviceDurationSec: null,
   };
   s.queue.push(token);
+  sortQueue(s.queue);
   insertToken(token);
-  const avg = computeAvg(s);
-  return withPosition(token, s.queue.length, avg);
+  const idx = s.queue.findIndex((t) => t.id === token.id);
+  return withPosition(token, idx + 1, avg);
+}
+
+/** Format YYYY-MM-DD for the local timezone. */
+function todayKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** If daily-reset is enabled for this branch and the day has rolled over, reset counter. */
+function maybeDailyReset(branchId: string, s: BranchLiveState): void {
+  const branch = getBranchById(branchId);
+  if (!branch || !branch.dailyResetEnabled) return;
+  const today = todayKey();
+  const lastReset = (branch as Branch & { lastResetDay?: string | null }).lastResetDay;
+  if (lastReset !== today) {
+    // Reset the counter to today's max token (so we don't reuse numbers from earlier today).
+    s.counter = getMaxTokenNumberToday(branchId);
+    setBranchLastResetDay(branchId, today);
+    console.log(`[daily-reset] Branch ${branchId} counter reset to ${s.counter} for ${today}`);
+  }
 }
 
 /** Teller calls the next waiting token. Returns the called token or null. */
 export function callNext(branchId: string, tellerId: string): Token | null {
   const s = ensure(branchId);
+
+  // Check if teller is paused.
+  if (pausedTellers.has(tellerId)) {
+    throw new QueueError(409, "Your counter is paused. Resume before calling next.");
+  }
+
   // Check if THIS teller already has someone being served.
   if (s.currentlyServing.has(tellerId)) {
     throw new QueueError(
@@ -239,4 +303,37 @@ export function resetBranch(branchId: string): number {
   // Note: we do NOT reset the counter so token numbers remain unique ever-incrementing.
 
   return clearedCount;
+}
+
+// ---------- Pause / Resume Counter ----------
+
+/** Pause a teller's counter (they cannot call next while paused). */
+export function pauseTeller(branchId: string, tellerId: string): void {
+  pausedTellers.add(tellerId);
+}
+
+/** Resume a paused teller's counter. */
+export function resumeTeller(branchId: string, tellerId: string): void {
+  pausedTellers.delete(tellerId);
+}
+
+/** Check if a teller is currently paused. */
+export function isTellerPaused(tellerId: string): boolean {
+  return pausedTellers.has(tellerId);
+}
+
+// ---------- Transfer Token ----------
+
+/** Transfer a waiting token to a different service type. */
+export function transferToken(branchId: string, tokenId: string, newServiceType: string): Token | null {
+  const s = ensure(branchId);
+  // Find the token in the waiting queue.
+  const token = s.queue.find((t) => t.id === tokenId);
+  if (!token) return null;
+  if (token.status !== "waiting") return null;
+  // Update in memory.
+  token.serviceType = newServiceType;
+  // Persist to DB.
+  updateTokenServiceType(tokenId, newServiceType);
+  return token;
 }
